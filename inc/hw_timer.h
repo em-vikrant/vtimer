@@ -7,7 +7,6 @@
 
 /* Built-In Libraries. */
 #include <stdint.h>
-#include <stdbool.h>
 #include <time.h>
 
 

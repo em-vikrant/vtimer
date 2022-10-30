@@ -4,8 +4,7 @@
 
 /* Built-In Libraries. */
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdbool.h>
 #include <time.h>
 
 /* Custom Libraries. */
@@ -30,6 +29,7 @@ static void hw_timer_interrupt_dummy()
 }
 
 /* Public Functions. */
+/* Used to initialize the hardware timer. */
 int8_t hw_timer_init()
 {
     /* Set the hardware timer. */
@@ -37,17 +37,21 @@ int8_t hw_timer_init()
     return(0);
 }
 
+/* Execute function for the hardware timer. It checks whether the timer elapsed or not. */
 int8_t hw_timer_execute()
 {
     if(hwTimer != 0 && IS_TIMER_ELAPSED(hwTimer))
     {
+        /* Stop the timer. */
+        hw_timer_stop();
+
         /* Invoke the interrupt. */
         interruptCb();
-        hw_timer_stop();
     }
     return(0);
 }
 
+/* Used to register the callback. */
 void hw_timer_registerCallback(hw_timer_interruptCb callback)
 {
     if(callback == NULL)
@@ -60,12 +64,14 @@ void hw_timer_registerCallback(hw_timer_interruptCb callback)
     }
 }
 
+/* Used to start the hardware timer. It set the hardware timer when the function is called. */
 void hw_timer_start(uint32_t seconds)
 {
     /* Set the timer. */
     SET_TIMER_SEC(hwTimer, seconds);
 }
 
+/* Used to stop the hardware timer. It sets the hardware timer to stop it. */
 void hw_timer_stop()
 {
     /* Set the timer to 0. */

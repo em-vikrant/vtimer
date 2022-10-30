@@ -26,6 +26,7 @@ typedef struct TimerList TimerList;
 
 /* Private Variables. */
 static TimerList* timerList;     // Virtual timers linked list.
+static bool hwTimerInUse;
 
 /* Private Functions. Prototypes. */
 void vtimerHandler();
@@ -33,12 +34,22 @@ TimerList* createTimerNode(uint32_t duration, uint32_t lastTime, timerCallback t
 TimerList* insertTimerNode(TimerList* head, TimerList* timerNode);
 uint32_t findMinTime(TimerList* head);
 
+void printDuraitonInList(TimerList* head)
+{
+    printf(" TIMER LIST = [ |");
+    for(TimerList* ptr = head; ptr != NULL; ptr = ptr->next)
+    {
+        printf("%d:%d| ", ptr->timer.duration, ptr->timer.expiryTime);
+    }
+    printf(" ]\r\n");
+}
 
 /* Public fucntions. */
 /* Initialize the timer variables. */
 int8_t vtimerInit()
 {
     timerList = NULL;
+    hwTimerInUse = false;
     hw_timer_registerCallback(vtimerHandler);
     return(0);
 }
@@ -50,23 +61,37 @@ int8_t vtimerExecute()
 }
 
 /* Used to set the timer. */
-void vtimerSet(uint32_t duration, timerCallback tmCb)
+int8_t vtimerSet(uint32_t duration, timerCallback tmCb)
 {
     TimerList* timerNode = createTimerNode(duration, GetTick(), tmCb);
     if(timerNode == NULL)
     {
         fprintf(stderr, "Unable to create a timer\r\n");
-        return;
+        return(-1);
     }
 
-    /* Add the time node to the linked list. */
+    /* Add the time node to the end of linked list. */
     timerList = insertTimerNode(timerList, timerNode);
+    if(timerList == NULL)
+    {
+        fprintf(stderr, "TIMER LIST NULL\r\n");
+    }
 
+    /* Serve the node having the minimum duration time. */
     uint32_t minTime = findMinTime(timerList);
-    if(minTime > 0)
+    if(minTime <= 0)
+    {
+        return(-2);
+    }
+    
+    /* Set the hardware timer. */
+    if(hwTimerInUse != true)
     {
         hw_timer_start(minTime);
+        hwTimerInUse = true;
     }
+    
+    return(0);
 }
 
 /* Private Functions. Implementations. */
@@ -74,6 +99,7 @@ void vtimerSet(uint32_t duration, timerCallback tmCb)
 void vtimerHandler()
 {
     uint32_t currTime = GetTick();
+    hwTimerInUse = false;
 
     /* Refresh the timer linked list. */
     TimerList* prev = NULL;
@@ -81,13 +107,14 @@ void vtimerHandler()
 
     while(ptr != NULL)
     {
-        // Check for each timer node. If timer elapsed then disable the timer
-        if(ptr->timer.expiryTime <= currTime)
+        /* Check for each timer node. */
+        uint32_t expirationTick = ptr->timer.duration + ptr->timer.lastTime;
+        if(expirationTick <= currTime)
         {
             ptr->timer.enabled = false;
-            ptr->timer.tmCb();  // Give callback to the respective client.
+            timerCallback cbHolder = ptr->timer.tmCb;   // Hold the callback
 
-            // Remove the timer node for which timer is elapsed.
+            /* Remove the timer node for which timer is elapsed. */
             if(ptr == timerList)
             {
                 TimerList* temp = ptr;
@@ -97,12 +124,6 @@ void vtimerHandler()
 
                 timerList = ptr;
             }
-            else if(ptr->next == NULL && prev != NULL)
-            {
-                prev->next = NULL;
-                free(ptr);
-                break;  // End node removed
-            }
             else
             {
                 TimerList* temp = ptr;
@@ -110,11 +131,14 @@ void vtimerHandler()
                 ptr = ptr->next;
                 free(temp);
             }
+
+            /* Callback to the client when timer node is removed. */
+            cbHolder();
         }
         else
         {
-            // Update the timers of all nodes accordingly.
-            ptr->timer.expiryTime = ptr->timer.duration + currTime;
+            /* Update the timers of all nodes accordingly. */
+            ptr->timer.expiryTime = ptr->timer.expiryTime + ptr->timer.lastTime - currTime;
             prev = ptr;
             ptr = ptr->next;
         }
@@ -125,6 +149,7 @@ void vtimerHandler()
     if(minTime > 0)
     {
         hw_timer_start(minTime);
+        hwTimerInUse = true;
     }
 }
 
@@ -141,12 +166,13 @@ TimerList* createTimerNode(uint32_t duration, uint32_t lastTime, timerCallback t
     newTimer->timer.timerId = 0;
     newTimer->timer.lastTime = lastTime;
     newTimer->timer.duration = duration;
-    newTimer->timer.expiryTime = lastTime + duration;
+    newTimer->timer.expiryTime = duration;
     newTimer->timer.tmCb = tmCb;
     newTimer->next = NULL;
     return(newTimer);
 }
 
+/* Used to insert node at the end of the linked list. */
 TimerList* insertTimerNode(TimerList* head, TimerList* timerNode)
 {
     if(head == NULL)
@@ -157,16 +183,17 @@ TimerList* insertTimerNode(TimerList* head, TimerList* timerNode)
     {
         for(TimerList* ptr = head; ptr != NULL; ptr = ptr->next)
         {
-            if(ptr->next = NULL)
+            if(ptr->next == NULL)
             {
                 ptr->next = timerNode;
-                break;
+                break;  // Insertion at end
             }
         }
     }
     return(head);
 }
 
+/* Used to find the minimum duration time from the linked list. */
 uint32_t findMinTime(TimerList* head)
 {
     if(head == NULL)
@@ -174,12 +201,12 @@ uint32_t findMinTime(TimerList* head)
         return(0);
     }
 
-    uint32_t minTime = head->timer.duration;
+    uint32_t minTime = head->timer.expiryTime;
     for(TimerList* ptr = head->next; ptr != NULL; ptr = ptr->next)
     {
-        if(minTime > ptr->timer.duration)
+        if(minTime > ptr->timer.expiryTime)
         {
-            minTime = ptr->timer.duration;
+            minTime = ptr->timer.expiryTime;
         }
     }
 

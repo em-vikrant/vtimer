@@ -11,12 +11,11 @@
 
 
 /* Typedef. */
-typedef struct vtimer_t vtimer_t;
 typedef void (*timerCallback)();
 
 /* Structures and Unions. */
 /* STRUCT: Used as information for a virtual timer. */
-struct vtimer_t
+typedef struct
 {
     bool enabled;
     uint8_t timerId;
@@ -24,11 +23,11 @@ struct vtimer_t
     uint32_t expiryTime;
     uint32_t duration;              // Duration
     timerCallback tmCb;             // Callback
-};
+}vtimer_t;
 
 /* Public Functions. */
 int8_t vtimerInit();
 int8_t vtimerExecute();
-void vtimerSet(uint32_t duartion, timerCallback tmCb);
+int8_t vtimerSet(uint32_t duartion, timerCallback tmCb);
 
 #endif
