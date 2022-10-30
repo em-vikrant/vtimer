@@ -34,15 +34,6 @@ TimerList* createTimerNode(uint32_t duration, uint32_t lastTime, timerCallback t
 TimerList* insertTimerNode(TimerList* head, TimerList* timerNode);
 uint32_t findMinTime(TimerList* head);
 
-void printDuraitonInList(TimerList* head)
-{
-    printf(" TIMER LIST = [ |");
-    for(TimerList* ptr = head; ptr != NULL; ptr = ptr->next)
-    {
-        printf("%d:%d| ", ptr->timer.duration, ptr->timer.expiryTime);
-    }
-    printf(" ]\r\n");
-}
 
 /* Public fucntions. */
 /* Initialize the timer variables. */
